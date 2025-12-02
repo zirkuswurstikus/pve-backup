@@ -43,6 +43,12 @@ chmod 600 password
 
 # 4. Install configuration files
 mkdir -p logs
+# Copy and customize the configuration file
+cp profiles.yaml.example profiles.yaml
+# Edit profiles.yaml and update:
+#   - Healthcheck.io UUIDs (replace YOUR_HEALTHCHECK_UUID)
+#   - Repository paths if needed
+#   - Password file path if different
 
 # 5. Initialize repositories
 sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm init
