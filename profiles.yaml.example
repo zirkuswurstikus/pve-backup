@@ -27,7 +27,7 @@ vm:
       - vm
       - ct
     verbose: true
-    schedule: "0 * * * *"
+    schedule: "daily"
     schedule-log: "/home/serveradmin/pve-backup/logs/vm-backup.log"
     schedule-permission: system
     send-before:
@@ -51,12 +51,12 @@ vm:
     keep-weekly: 4
     keep-monthly: 12
     prune: true
-    schedule: "0 10 * * 1"
+    schedule: "weekly"
     schedule-log: "/home/serveradmin/pve-backup/logs/vm-forget.log"
     schedule-permission: system
     verbose: true
   prune:
-    schedule: "0 10 * * 1"
+    schedule: "weekly"
     schedule-log: "/home/serveradmin/pve-backup/logs/vm-prune.log"
     schedule-permission: system
     verbose: true
@@ -76,7 +76,7 @@ vm:
   check:
     read-data-subset: "5%"
     check-unused: true
-    schedule: "0 10 * * 1"
+    schedule: "weekly"
     schedule-log: "/home/serveradmin/pve-backup/logs/vm-check.log"
     schedule-permission: system
     verbose: true
