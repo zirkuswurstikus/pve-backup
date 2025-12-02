@@ -1,0 +1,190 @@
+version: "1"
+
+default-command:
+  command: snapshots
+
+global:
+  initialize: true
+  restic-stale-lock-age: 1h
+  restic-lock-retry-after: 5m
+  log: "/home/serveradmin/pve-backup/logs/resticprofile.log"
+  log-level: "warn"
+  cache-dir: "/var/cache/restic"
+
+groups:
+  all:
+    - vm
+    - system
+
+vm:
+  repository: "rclone:onedrive:B/pve/meatball/vm"
+  password-file: "/home/serveradmin/pve-backup/password"
+  backup:
+    source:
+      - "/var/lib/vz/dump"
+    tag:
+      - proxmox
+      - vm
+      - ct
+    verbose: true
+    schedule: "0 * * * *"
+    schedule-log: "/home/serveradmin/pve-backup/logs/vm-backup.log"
+    schedule-permission: system
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_vm/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_vm"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_vm/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+  forget:
+    before-backup: false
+    after-backup: false
+    keep-last: 1
+    keep-daily: 7
+    keep-weekly: 4
+    keep-monthly: 12
+    prune: true
+    schedule: "0 10 * * 1"
+    schedule-log: "/home/serveradmin/pve-backup/logs/vm-forget.log"
+    schedule-permission: system
+    verbose: true
+  prune:
+    schedule: "0 10 * * 1"
+    schedule-log: "/home/serveradmin/pve-backup/logs/vm-prune.log"
+    schedule-permission: system
+    verbose: true
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_vm/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_vm"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_vm/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+  check:
+    read-data-subset: "5%"
+    check-unused: true
+    schedule: "0 10 * * 1"
+    schedule-log: "/home/serveradmin/pve-backup/logs/vm-check.log"
+    schedule-permission: system
+    verbose: true
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_vm/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_vm"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_vm/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+
+system:
+  repository: "rclone:onedrive:B/pve/meatball/system"
+  password-file: "/home/serveradmin/pve-backup/password"
+  backup:
+    source:
+      - "/etc"
+      - "/root"
+      - "/home"
+    exclude:
+      - "*.iso"
+    tag:
+      - proxmox
+      - system
+    verbose: true
+    schedule: "daily"
+    schedule-log: "/home/serveradmin/pve-backup/logs/system-backup.log"
+    schedule-permission: system
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_system/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_system"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_backup_system/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+  forget:
+    before-backup: false
+    after-backup: false
+    keep-last: 1
+    keep-daily: 7
+    keep-weekly: 4
+    keep-monthly: 12
+    prune: true
+    schedule: "daily"
+    schedule-log: "/home/serveradmin/pve-backup/logs/system-forget.log"
+    schedule-permission: system
+    verbose: true
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_forget_system/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_forget_system"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_forget_system/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+  prune:
+    schedule: "daily"
+    schedule-log: "/home/serveradmin/pve-backup/logs/system-prune.log"
+    schedule-permission: system
+    verbose: true
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_system/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_system"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_prune_system/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+  check:
+    read-data-subset: "5%"
+    check-unused: true
+    schedule: "daily"
+    schedule-log: "/home/serveradmin/pve-backup/logs/system-check.log"
+    schedule-permission: system
+    verbose: true
+    send-before:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_system/start"
+    send-after:
+      - method: HEAD
+        url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_system"
+    send-after-failed:
+      method: POST
+      url: "https://hc-ping.com/YOUR_HEALTHCHECK_UUID/meatball_restic_check_system/fail"
+      body: "${ERROR}\n\n${ERROR_STDERR}"
+      headers:
+        - name: Content-Type
+          value: "text/plain; charset=UTF-8"
+
