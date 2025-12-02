@@ -60,7 +60,7 @@ sudo cp logrotate.conf /etc/logrotate.d/resticprofile
 - **VM Profile**: Backs up both VM and CT files from `/var/lib/vz/dump`
   - Repository: `rclone:onedrive:B/pve/meatball/vm`
   - Tags: `proxmox`, `vm`, `ct`
-  - Schedule: Hourly backups, weekly forget/prune/check (Monday 10:00 AM)
+  - Schedule: Daily backups at midnight, weekly forget/prune/check (Monday at midnight)
 
 - **System Profile**: Backs up system configuration files
   - Repository: `rclone:onedrive:B/pve/meatball/system`
@@ -156,10 +156,122 @@ All healthcheck URLs are configured in `profiles.yaml` and automatically ping he
 - Uses **rclone** to sync backups to OneDrive cloud storage
 - Uses **resticprofile** for managing backup profiles and scheduling
 - Retention policy: keep last 1, daily 7, weekly 4, monthly 12
-- VM/CT backups run hourly, forget/prune/check run weekly on Monday at 10:00 AM
-- System backups run daily, forget/prune/check also run daily
+- VM/CT backups run daily at midnight, forget/prune/check run weekly on Monday at midnight
+- System backups run daily at midnight, forget/prune/check also run daily at midnight
 - Files deleted locally are preserved on OneDrive via restic retention
 - Proxmox handles local backup retention automatically
 - **All profiles require sudo** to access `/root/.config/rclone/rclone.conf` for rclone authentication
 - **System profile additionally requires sudo** for accessing `/etc`, `/root`, and `/home` directories
 - Log rotation: Logs are rotated monthly via logrotate (see `logrotate.conf`), keeping 12 months of compressed logs
+
+## Appendix: Triggering Scheduled Jobs for Testing
+
+To manually trigger scheduled jobs without waiting for their scheduled time, use systemd to start the service units directly.
+
+**Important:** Jobs must be triggered **sequentially** (one after another) to avoid restic repository locking issues. Each job must complete before starting the next one.
+
+### List All Scheduled Jobs
+
+```bash
+sudo systemctl list-units --type=timer | grep restic
+```
+
+### Trigger Individual Jobs (Sequentially)
+
+**VM Profile** - Run one at a time, waiting for each to complete:
+
+```bash
+# Backup
+sudo systemctl start resticprofile-backup@profile-vm.service
+sudo systemctl status resticprofile-backup@profile-vm.service -l --no-pager
+# Wait for completion, then continue...
+
+# Forget (applies retention policy)
+sudo systemctl start resticprofile-forget@profile-vm.service
+sudo systemctl status resticprofile-forget@profile-vm.service -l --no-pager
+# Wait for completion, then continue...
+
+# Prune (removes unused data)
+sudo systemctl start resticprofile-prune@profile-vm.service
+sudo systemctl status resticprofile-prune@profile-vm.service -l --no-pager
+# Wait for completion, then continue...
+
+# Check (verifies repository integrity)
+sudo systemctl start resticprofile-check@profile-vm.service
+sudo systemctl status resticprofile-check@profile-vm.service -l --no-pager
+```
+
+**System Profile** - Run one at a time, waiting for each to complete:
+
+```bash
+# Backup
+sudo systemctl start resticprofile-backup@profile-system.service
+sudo systemctl status resticprofile-backup@profile-system.service -l --no-pager
+# Wait for completion, then continue...
+
+# Forget (applies retention policy)
+sudo systemctl start resticprofile-forget@profile-system.service
+sudo systemctl status resticprofile-forget@profile-system.service -l --no-pager
+# Wait for completion, then continue...
+
+# Prune (removes unused data)
+sudo systemctl start resticprofile-prune@profile-system.service
+sudo systemctl status resticprofile-prune@profile-system.service -l --no-pager
+# Wait for completion, then continue...
+
+# Check (verifies repository integrity)
+sudo systemctl start resticprofile-check@profile-system.service
+sudo systemctl status resticprofile-check@profile-system.service -l --no-pager
+```
+
+### Trigger Jobs Sequentially with Automatic Waiting
+
+For convenience, you can use a script that waits for each job to complete:
+
+```bash
+# VM Profile - Sequential execution
+sudo systemctl start resticprofile-backup@profile-vm.service && \
+  sudo systemctl wait resticprofile-backup@profile-vm.service && \
+  sudo systemctl start resticprofile-forget@profile-vm.service && \
+  sudo systemctl wait resticprofile-forget@profile-vm.service && \
+  sudo systemctl start resticprofile-prune@profile-vm.service && \
+  sudo systemctl wait resticprofile-prune@profile-vm.service && \
+  sudo systemctl start resticprofile-check@profile-vm.service && \
+  sudo systemctl wait resticprofile-check@profile-vm.service && \
+  echo "All VM jobs completed"
+
+# System Profile - Sequential execution
+sudo systemctl start resticprofile-backup@profile-system.service && \
+  sudo systemctl wait resticprofile-backup@profile-system.service && \
+  sudo systemctl start resticprofile-forget@profile-system.service && \
+  sudo systemctl wait resticprofile-forget@profile-system.service && \
+  sudo systemctl start resticprofile-prune@profile-system.service && \
+  sudo systemctl wait resticprofile-prune@profile-system.service && \
+  sudo systemctl start resticprofile-check@profile-system.service && \
+  sudo systemctl wait resticprofile-check@profile-system.service && \
+  echo "All system jobs completed"
+```
+
+### Monitor Job Status
+
+```bash
+# Check status of all resticprofile services
+sudo systemctl status 'resticprofile-*@profile-*.service'
+
+# Watch logs in real-time
+tail -f /home/serveradmin/pve-backup/logs/vm-backup.log
+tail -f /home/serveradmin/pve-backup/logs/system-backup.log
+
+# Check when timers will run next
+sudo systemctl list-timers --all | grep restic
+```
+
+### View Service Logs
+
+```bash
+# View logs for a specific job
+sudo journalctl -u resticprofile-backup@profile-vm.service -f
+sudo journalctl -u resticprofile-backup@profile-system.service -f
+```
+
+Note: Manually triggered jobs still send healthcheck.io notifications as configured in `profiles.yaml`.
