@@ -1,6 +1,12 @@
 # Proxmox OneDrive Backup
 
-Automated backup sync from Proxmox VE to OneDrive using restic and resticprofile.
+![meatball](https://healthchecks.io/badge/746c60b3-c4f2-44fd-9e7e-594d19/eUYth26p/meatball.svg)
+
+Automated backup sync from Proxmox VE to OneDrive using **restic**, **resticprofile**, and **rclone**.
+
+**Technologies:** `restic` `resticprofile` `rclone` `healthchecks.io`
+
+**Monitoring:** All backup, prune, and check operations are monitored via [healthchecks.io](https://healthchecks.io) with automatic failure notifications.
 
 ## Setup
 
@@ -39,7 +45,7 @@ chmod 600 password
 mkdir -p logs
 
 # 5. Initialize repositories
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm init
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm init
 sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml system init
 
 # 6. Install schedules
@@ -65,28 +71,28 @@ sudo cp logrotate.conf /etc/logrotate.d/resticprofile
 
 - **Config**: `profiles.yaml` (in current directory)
 - **Password**: `password` (in current directory)
-- **Rclone config**: `/root/.config/rclone/rclone.conf` (for system backups with sudo)
+- **Rclone config**: `/root/.config/rclone/rclone.conf` (requires sudo to access)
 - **Logs**: `logs/*.log` (rotated monthly, 12 months retention)
 - **Cache**: `/var/cache/restic` (global, shared by all profiles)
 
 ## Commands
 
-### VM Profile (no sudo required)
+### VM Profile
 ```bash
-# Manual backup
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm backup
+# Manual backup (sudo may be required to access /root/.config/rclone/rclone.conf)
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm backup
 
 # List snapshots
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm snapshots
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm snapshots
 
 # Check repository
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm check
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm check
 
 # Apply retention policy
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm forget
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm forget
 
 # Prune repository
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml vm prune
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml vm prune
 ```
 
 ### System Profile (sudo required)
@@ -109,12 +115,11 @@ sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serve
 
 ### All Profiles
 ```bash
-# Backup all profiles
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml all backup
-# Note: System profile will still require sudo when scheduled
+# Backup all profiles (sudo required to access /root/.config/rclone/rclone.conf)
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml all backup
 
 # List all snapshots
-RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c profiles.yaml all snapshots
+sudo RCLONE_CONFIG=/root/.config/rclone/rclone.conf resticprofile -c /home/serveradmin/pve-backup/profiles.yaml all snapshots
 ```
 
 ## Self-Update
@@ -134,14 +139,27 @@ sudo resticprofile self-update
 
 Note: If tools were installed via package manager, use `apt upgrade` instead.
 
+## Monitoring
+
+This backup system uses [healthchecks.io](https://healthchecks.io) to monitor all backup operations:
+
+- **Backup operations**: Monitored with start, success, and failure notifications
+- **Prune operations**: Monitored with start, success, and failure notifications  
+- **Check operations**: Monitored with start, success, and failure notifications
+- **Failure notifications**: Include error details in the notification body
+
+All healthcheck URLs are configured in `profiles.yaml` and automatically ping healthchecks.io before and after each operation.
+
 ## Notes
 
-- Uses restic for deduplication and encryption
+- Uses **restic** for deduplication and encryption
+- Uses **rclone** to sync backups to OneDrive cloud storage
+- Uses **resticprofile** for managing backup profiles and scheduling
 - Retention policy: keep last 1, daily 7, weekly 4, monthly 12
 - VM/CT backups run hourly, forget/prune/check run weekly on Monday at 10:00 AM
 - System backups run daily, forget/prune/check also run daily
 - Files deleted locally are preserved on OneDrive via restic retention
 - Proxmox handles local backup retention automatically
-- **System profile requires sudo** for accessing `/etc`, `/root`, and `/home` directories
+- **All profiles require sudo** to access `/root/.config/rclone/rclone.conf` for rclone authentication
+- **System profile additionally requires sudo** for accessing `/etc`, `/root`, and `/home` directories
 - Log rotation: Logs are rotated monthly via logrotate (see `logrotate.conf`), keeping 12 months of compressed logs
-- Healthcheck.io monitoring integrated for all backup, prune, and check operations
